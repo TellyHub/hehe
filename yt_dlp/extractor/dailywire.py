@@ -1,3 +1,4 @@
+import json
 from .common import InfoExtractor
 from ..utils import (
     determine_ext,
@@ -14,7 +15,71 @@ class DailyWireBaseIE(InfoExtractor):
         'videos': ('props', 'pageProps', 'videoData', 'video'),
         'podcasts': ('props', 'pageProps', 'episode'),
     }
-
+    
+    _HEADER = {
+        'content-type': 'application/json',
+    }
+    _QUERY = '''
+query getEpisodeBySlug($slug: String!) {
+  episode(where: {slug: $slug}) {
+    id
+    title
+    status
+    slug
+    isLive
+    description
+    createdAt
+    scheduleAt
+    updatedAt
+    image
+    allowedCountryNames
+    allowedContinents
+    rating
+    show {
+        id
+        name
+        slug
+        belongsTo
+    }
+    segments {
+        id
+        image
+        title
+        liveChatAccess
+        audio
+        video
+        duration
+        watchTime
+        description
+        videoAccess
+        muxAssetId
+        muxPlaybackId
+        captions {
+            id
+        }
+    }
+    createdBy {
+        firstName
+        lastName
+    }
+    discussionId
+    }
+}
+'''    
+    def _call_api(self, slug):
+        query = {
+            'query': self._QUERY, 
+            'variables': {'slug': f'{slug}'}
+        }
+        #query = json.dumps(query)
+        json_page = self._download_json(
+            'https://v2server.dailywire.com/app/graphql',
+            slug, data=json.dumps(query).encode('utf-8')), headers=self._HEADER)
+        print(json_page)
+    
+    def _perform_login(self, username, password):
+        login_url = 'https://authorize.dailywire.com/usernamepassword/login'
+        
     def _get_json(self, url):
         sites_type, slug = self._match_valid_url(url).group('sites_type', 'id')
         json_data = self._search_nextjs_data(self._download_webpage(url, slug), slug)
@@ -58,7 +123,9 @@ class DailyWireIE(DailyWireBaseIE):
         slug, episode_info = self._get_json(url)
         urls = traverse_obj(
             episode_info, (('segments', 'videoUrl'), ..., ('video', 'audio')), expected_type=url_or_none)
-
+        
+        print(self._call_api(slug))
+        
         formats, subtitles = [], {}
         for url in urls:
             if determine_ext(url) != 'm3u8':

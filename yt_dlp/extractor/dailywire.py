@@ -1,6 +1,7 @@
 import json
 from .common import InfoExtractor
 from ..utils import (
+    ExtractorError,
     determine_ext,
     float_or_none,
     join_nonempty,
@@ -10,6 +11,7 @@ from ..utils import (
 
 
 class DailyWireBaseIE(InfoExtractor):
+    _NETRC_MACHINE = True
     _JSON_PATH = {
         'episode': ('props', 'pageProps', 'episodeData', 'episode'),
         'videos': ('props', 'pageProps', 'videoData', 'video'),
@@ -74,11 +76,58 @@ query getEpisodeBySlug($slug: String!) {
         #query = json.dumps(query)
         json_page = self._download_json(
             'https://v2server.dailywire.com/app/graphql',
-            slug, data=json.dumps(query).encode('utf-8')), headers=self._HEADER)
+            slug, data=json.dumps(query).encode('utf-8'), headers=self._HEADER)
         print(json_page)
     
     def _perform_login(self, username, password):
         login_url = 'https://authorize.dailywire.com/usernamepassword/login'
+        post_data={
+            'client_id': 'hDgwLR0K67GTe9IuVKATlbohhsAbD37H',
+            'redirect_uri': 'https://www.dailywire.com/callback',
+            'tenant': 'dailywire',
+            'response_type': 'code',
+            'scope': 'openid profile email',
+            'state':'hKFo2SBvYTJTS0FpeWxYN0hYa3Rwb1BEaXhjN1M2eGFfMTdtd6FupWxvZ2luo3RpZNkgNlBzRGRYMU9uNWpiSFFoN2hwalljVlAydTh1T0hPSWWjY2lk2SBoRGd3TFIwSzY3R1RlOUl1VktBVGxib2hoc0FiRDM3SA',
+            'nonce': 'RjdqWS1IVllPYm1KNWl1eWFSWU5pY1c1OVFVS3IweE9KN2lKQkllMGo3ZA==',
+            'connection': 'Username-Password-Authentication',
+            'username': f'{username}',
+            'password': f"{password}",
+            'popup_options': {},
+            'sso': True,
+            'response_mode': 'query',
+            '_intstate': 'deprecated',
+            '_csrf': '7uZIX1g2-v7sSEakDF8NYnTIK0NxXKgd-77g', 
+            'audience': 'https://api.dailywire.com/',
+            'code_challenge_method': 'S256',
+            'code_challenge':'AW6dWt-XhFW2ZyQsS4V3VMIwKmvkpp9769R888zrFSo',
+            'auth0Client': 'eyJuYW1lIjoiYXV0aDAtc3BhLWpzIiwidmVyc2lvbiI6IjEuMTkuMyJ9',
+            "protocol":"oauth2"
+        }
+        result_webpage = self._download_webpage(
+            login_url,
+            'dailywire:login', data=json.dumps(post_data).encode(), headers=self._HEADER,
+        )
+        # result webpage can return html if success and json if not
+        # if self._parse_json(result_webpage, 'login-webpage', fatal=False).get('statusCode'):
+            # raise ExtractorError(f'Error occur when login: {result_webpage.get(description)}')
+        print(result_webpage)
+        token_url = 'https://authorize.dailywire.com/oauth/token'
+        token_post_data = {
+            'client_id': 'hDgwLR0K67GTe9IuVKATlbohhsAbD37H',
+            'code_verifier': 'oYtR0VP4SF8TD_v0.YW9i02VvBgJ1wDcxfb4GgtN1Sj', 
+            'grant_type': 'authorization_code',
+            'code': 'Wr8E9G3IDOgagKcp-OVB3ZPbcFbhRFkQ-RSuvgtF2KpiH', # private
+            'redirect_uri': 'https://www.dailywire.com/callback',
+            }
+        token_data = self._download_json(
+            f'https://authorize.dailywire.com/oauth/token',
+            'token', data=json.dumps(token_post_data).encode(), headers=self._HEADER,)
+        # bearer_token = self._search_regex(
+            # r'<input\s*[\w=\"]+\s*name=\"wresult\"\s*value=\"(?P<result>[\w\.-]+)',
+            # result_webpage, 'bearer_token', group='result')
+        # print(bearer_token)
+        bearer_token = access_token 
+        self._HEADER['Authorization'] = f'Bearer {bearer_token}'
         
     def _get_json(self, url):
         sites_type, slug = self._match_valid_url(url).group('sites_type', 'id')
@@ -121,6 +170,7 @@ class DailyWireIE(DailyWireBaseIE):
 
     def _real_extract(self, url):
         slug, episode_info = self._get_json(url)
+        episode_info = self._call_api(slug) or episode_info
         urls = traverse_obj(
             episode_info, (('segments', 'videoUrl'), ..., ('video', 'audio')), expected_type=url_or_none)
         

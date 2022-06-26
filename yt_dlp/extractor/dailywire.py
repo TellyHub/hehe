@@ -11,7 +11,7 @@ from ..utils import (
 
 
 class DailyWireBaseIE(InfoExtractor):
-    _NETRC_MACHINE = True
+    # _NETRC_MACHINE = True
     _JSON_PATH = {
         'episode': ('props', 'pageProps', 'episodeData', 'episode'),
         'videos': ('props', 'pageProps', 'videoData', 'video'),
@@ -69,17 +69,17 @@ query getEpisodeBySlug($slug: String!) {
 }
 '''    
     def _call_api(self, slug):
+        # using graphql api
         query = {
             'query': self._QUERY, 
             'variables': {'slug': f'{slug}'}
         }
-        #query = json.dumps(query)
         json_page = self._download_json(
             'https://v2server.dailywire.com/app/graphql',
-            slug, data=json.dumps(query).encode('utf-8'), headers=self._HEADER)
-        print(json_page)
+            slug, data=json.dumps(query).encode('utf-8'), headers=self._HEADER, fatal=False)
     
     def _perform_login(self, username, password):
+        # This site using Oauth2 for authorization
         login_url = 'https://authorize.dailywire.com/usernamepassword/login'
         post_data={
             'client_id': 'hDgwLR0K67GTe9IuVKATlbohhsAbD37H',
@@ -96,36 +96,43 @@ query getEpisodeBySlug($slug: String!) {
             'sso': True,
             'response_mode': 'query',
             '_intstate': 'deprecated',
-            '_csrf': '7uZIX1g2-v7sSEakDF8NYnTIK0NxXKgd-77g', 
+            '_csrf': '7uZIX1g2-v7sSEakDF8NYnTIK0NxXKgd-77g', # always change
             'audience': 'https://api.dailywire.com/',
             'code_challenge_method': 'S256',
             'code_challenge':'AW6dWt-XhFW2ZyQsS4V3VMIwKmvkpp9769R888zrFSo',
             'auth0Client': 'eyJuYW1lIjoiYXV0aDAtc3BhLWpzIiwidmVyc2lvbiI6IjEuMTkuMyJ9',
             "protocol":"oauth2"
         }
+        # this site validate right account here
         result_webpage = self._download_webpage(
             login_url,
             'dailywire:login', data=json.dumps(post_data).encode(), headers=self._HEADER,
         )
         # result webpage can return html if success and json if not
+        # the 'login_url' seems to redirect url to <redirect_url>?code=<code>, 
+        # the <code> can be used in 'token_url'
+        
         # if self._parse_json(result_webpage, 'login-webpage', fatal=False).get('statusCode'):
             # raise ExtractorError(f'Error occur when login: {result_webpage.get(description)}')
-        print(result_webpage)
+        #print(result_webpage)
+        
+        # actual token is taken here
         token_url = 'https://authorize.dailywire.com/oauth/token'
         token_post_data = {
             'client_id': 'hDgwLR0K67GTe9IuVKATlbohhsAbD37H',
-            'code_verifier': 'oYtR0VP4SF8TD_v0.YW9i02VvBgJ1wDcxfb4GgtN1Sj', 
+            'code_verifier': 'oYtR0VP4SF8TD_v0.YW9i02VvBgJ1wDcxfb4GgtN1Sj', # always change
             'grant_type': 'authorization_code',
-            'code': 'Wr8E9G3IDOgagKcp-OVB3ZPbcFbhRFkQ-RSuvgtF2KpiH', # private
+            'code': 'Wr8E9G3IDOgagKcp-OVB3ZPbcFbhRFkQ-RSuvgtF2KpiH', # always change
             'redirect_uri': 'https://www.dailywire.com/callback',
             }
         token_data = self._download_json(
-            f'https://authorize.dailywire.com/oauth/token',
+            'https://authorize.dailywire.com/oauth/token',
             'token', data=json.dumps(token_post_data).encode(), headers=self._HEADER,)
         # bearer_token = self._search_regex(
             # r'<input\s*[\w=\"]+\s*name=\"wresult\"\s*value=\"(?P<result>[\w\.-]+)',
             # result_webpage, 'bearer_token', group='result')
         # print(bearer_token)
+        
         bearer_token = access_token 
         self._HEADER['Authorization'] = f'Bearer {bearer_token}'
         

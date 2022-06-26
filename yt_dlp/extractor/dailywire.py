@@ -77,7 +77,8 @@ query getEpisodeBySlug($slug: String!) {
         json_page = self._download_json(
             'https://v2server.dailywire.com/app/graphql',
             slug, data=json.dumps(query).encode('utf-8'), headers=self._HEADER, fatal=False)
-    
+        return traverse_obj(json_page, ('episode'))
+        
     def _perform_login(self, username, password):
         # This site using Oauth2 for authorization
         login_url = 'https://authorize.dailywire.com/usernamepassword/login'
@@ -180,11 +181,10 @@ class DailyWireIE(DailyWireBaseIE):
         episode_info = self._call_api(slug) or episode_info
         urls = traverse_obj(
             episode_info, (('segments', 'videoUrl'), ..., ('video', 'audio')), expected_type=url_or_none)
-        
-        print(self._call_api(slug))
-        
+       
         formats, subtitles = [], {}
-        for url in urls:
+        # 'or []' intended to give better error message at the end of processing not as fallback
+        for url in urls or []:
             if determine_ext(url) != 'm3u8':
                 formats.append({'url': url})
                 continue

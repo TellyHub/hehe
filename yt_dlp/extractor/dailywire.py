@@ -9,7 +9,7 @@ from ..utils import (
     url_or_none,
 )
 from urllib.error import HTTPError
-from urllib.parse import unquote
+from urllib.parse import quote
 
 class DailyWireBaseIE(InfoExtractor):
     _NETRC_MACHINE = True
@@ -101,7 +101,7 @@ query getEpisodeBySlug($slug: String!) {
         authentication_request = self._request_webpage(
             authentication_url, 'auth:init', query=authentication_query, headers=self._HEADER
         )
-        print(authentication_request.headers)
+        print(self._get_cookies(authentication_url).get('_csrf'))
         
         self.write_debug('trying to login')
         # This site using Oauth2 for authorization
@@ -162,7 +162,7 @@ query getEpisodeBySlug($slug: String!) {
         try:
             webpage = self._download_webpage(
             login_url, 'login', data=json.dumps(post_data).encode(), headers=self._HEADER )
-            self.write_debug(f'webpage: {webpage}')
+            #self.write_debug(f'webpage: {webpage}')
             #self.write_debug(f'webpage_url {webpage.geturl()}')
         except ExtractorError as e:
             if not isinstance(e.cause, HTTPError):
@@ -190,26 +190,33 @@ query getEpisodeBySlug($slug: String!) {
             'jti': '62b98fe0dced2742fff06890',
             'realm': 'Username-Password-Authentication',
         }
-        callback_post_data = {
-            'wa': self._search_regex(
+        wa = self._search_regex(
                 r'<input\s*[\w=\"]+\s*name=\"wa\"\s*value=\"(?P<result>[\w\.-]+)',
-                webpage, 'wa', group='result'),
-            'wresult': self._search_regex(
+                webpage, 'wa', group='result')
+        wresult = self._search_regex(
                 r'<input\s*[\w=\"]+\s*name=\"wresult\"\s*value=\"(?P<result>[\w\.-]+)', 
-                webpage, 'wresult', group='result'),
-            'wctx': json.dumps(wctx),
-        }
+                webpage, 'wresult', group='result')
         
-        self.write_debug(callback_post_data)
+        # callback_post_data = {
+            # 'wa': self._search_regex(
+                # r'<input\s*[\w=\"]+\s*name=\"wa\"\s*value=\"(?P<result>[\w\.-]+)',
+                # webpage, 'wa', group='result'),
+            # 'wresult': self._search_regex(
+                # r'<input\s*[\w=\"]+\s*name=\"wresult\"\s*value=\"(?P<result>[\w\.-]+)', 
+                # webpage, 'wresult', group='result'),
+            # 'wctx': wctx,
+        # }
         
+        self.write_debug(f'wa:{wa}, wresult: {wresult}, wctx={str(wctx)}')
         # this url should be redirect to resume?state then to callback?code=<code>
         callback_url = 'https://authorize.dailywire.com/login/callback'
         
         callback_request = self._request_webpage(
             callback_url, 
-            'video_id', data=json.dumps(callback_post_data).encode(), 
-            headers={'Content-Type': 'application/x-www-form-urlencoded'})
-            
+            'video_id', 
+            data=f'wa={wa}&wresult={wresult}&wctx={quote(str(wctx))}'.encode(), 
+            #headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        )
         callback_final_url = callback_request.geturl()
         self.write_debug(f'Final callback url: {callback_final_url}')
         # needed data to token

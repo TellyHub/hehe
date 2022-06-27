@@ -8,10 +8,10 @@ from ..utils import (
     traverse_obj,
     url_or_none,
 )
-
+from urllib.error import HTTPError
 
 class DailyWireBaseIE(InfoExtractor):
-    # _NETRC_MACHINE = True
+    _NETRC_MACHINE = True
     _JSON_PATH = {
         'episode': ('props', 'pageProps', 'episodeData', 'episode'),
         'videos': ('props', 'pageProps', 'videoData', 'video'),
@@ -80,62 +80,111 @@ query getEpisodeBySlug($slug: String!) {
         return traverse_obj(json_page, ('episode'))
         
     def _perform_login(self, username, password):
+        self.write_debug('trying to login')
         # This site using Oauth2 for authorization
         login_url = 'https://authorize.dailywire.com/usernamepassword/login'
+        # post_data={
+            # 'client_id': 'hDgwLR0K67GTe9IuVKATlbohhsAbD37H',
+            # 'redirect_uri': 'https://www.dailywire.com/callback',
+            # 'tenant': 'dailywire',
+            # 'response_type': 'code',
+            # 'scope': 'openid profile email',
+            # 'state':'hKFo2SBvYTJTS0FpeWxYN0hYa3Rwb1BEaXhjN1M2eGFfMTdtd6FupWxvZ2luo3RpZNkgNlBzRGRYMU9uNWpiSFFoN2hwalljVlAydTh1T0hPSWWjY2lk2SBoRGd3TFIwSzY3R1RlOUl1VktBVGxib2hoc0FiRDM3SA',
+            # 'nonce': 'dFVvOWY4YURZbHFQLkVhTS42dF9HdERpR1Fjdml6Mlk0VDJwSWJrNkFpcw==', # always change
+            # 'connection': 'Username-Password-Authentication',
+            # 'username': f'{username}',
+            # 'password': f"{password}",
+            # 'popup_options': {},
+            # 'sso': True,
+            # 'response_mode': 'query',
+            # '_intstate': 'deprecated',
+            # '_csrf': '2LQZ014Y-1c_Ebv2T6hUOm_EgsBihroWlKUA', # always change
+            # 'audience': 'https://api.dailywire.com/',
+            # 'code_challenge_method': 'S256',
+            # 'code_challenge':'jYovVPCO3IAuzh2lcDD2NZkUC61lKWbg8zkAbFfqKgM', # always change
+            # 'auth0Client': 'eyJuYW1lIjoiYXV0aDAtc3BhLWpzIiwidmVyc2lvbiI6IjEuMTkuMyJ9',
+            # "protocol":"oauth2"
+        # }
+        
         post_data={
-            'client_id': 'hDgwLR0K67GTe9IuVKATlbohhsAbD37H',
-            'redirect_uri': 'https://www.dailywire.com/callback',
-            'tenant': 'dailywire',
-            'response_type': 'code',
-            'scope': 'openid profile email',
-            'state':'hKFo2SBvYTJTS0FpeWxYN0hYa3Rwb1BEaXhjN1M2eGFfMTdtd6FupWxvZ2luo3RpZNkgNlBzRGRYMU9uNWpiSFFoN2hwalljVlAydTh1T0hPSWWjY2lk2SBoRGd3TFIwSzY3R1RlOUl1VktBVGxib2hoc0FiRDM3SA',
-            'nonce': 'RjdqWS1IVllPYm1KNWl1eWFSWU5pY1c1OVFVS3IweE9KN2lKQkllMGo3ZA==',
-            'connection': 'Username-Password-Authentication',
-            'username': f'{username}',
-            'password': f"{password}",
-            'popup_options': {},
-            'sso': True,
-            'response_mode': 'query',
-            '_intstate': 'deprecated',
-            '_csrf': '7uZIX1g2-v7sSEakDF8NYnTIK0NxXKgd-77g', # always change
-            'audience': 'https://api.dailywire.com/',
-            'code_challenge_method': 'S256',
-            'code_challenge':'AW6dWt-XhFW2ZyQsS4V3VMIwKmvkpp9769R888zrFSo',
-            'auth0Client': 'eyJuYW1lIjoiYXV0aDAtc3BhLWpzIiwidmVyc2lvbiI6IjEuMTkuMyJ9',
-            "protocol":"oauth2"
+            "client_id": "hDgwLR0K67GTe9IuVKATlbohhsAbD37H",
+            "redirect_uri": "https://www.dailywire.com/callback",
+            "tenant": "dailywire",
+            "response_type": "code",
+            "scope": "openid profile email",
+            "state": "hKFo2SBWemhXcV9NZTdrdkFFby1JYTJtdzV3bjJ0UHR2RFB6UqFupWxvZ2luo3RpZNkgRW9hcU9HSmRSVGtXdHFlQlNJZy1HZXlmclNSLUt3a2SjY2lk2SBoRGd3TFIwSzY3R1RlOUl1VktBVGxib2hoc0FiRDM3SA",
+            "nonce": "dFVvOWY4YURZbHFQLkVhTS42dF9HdERpR1Fjdml6Mlk0VDJwSWJrNkFpcw==",
+            "connection": "Username-Password-Authentication",
+            "username": f"{username}",
+            "password": f"{password}",
+            "popup_options": {},
+            "sso": True,
+            "response_mode": "query",
+            "_intstate": "deprecated",
+            "_csrf": "2LQZ014Y-1c_Ebv2T6hUOm_EgsBihroWlKUA",
+            "audience": "https://api.dailywire.com/",
+            "code_challenge_method": "S256",
+            "code_challenge": "jYovVPCO3IAuzh2lcDD2NZkUC61lKWbg8zkAbFfqKgM",
+            "auth0Client": "eyJuYW1lIjoiYXV0aDAtc3BhLWpzIiwidmVyc2lvbiI6IjEuMTkuMyJ9",
+            "protocol": "oauth2"
         }
+        
         # this site validate right account here
-        result_webpage = self._download_webpage(
-            login_url,
-            'dailywire:login', data=json.dumps(post_data).encode(), headers=self._HEADER,
-        )
+        # result_webpage = self._download_webpage(
+            # login_url,
+            # 'dailywire:login', data=json.dumps(post_data).encode(), headers=self._HEADER,
+        # )
+        
         # result webpage can return html if success and json if not
         # the 'login_url' seems to redirect url to <redirect_url>?code=<code>, 
         # the <code> can be used in 'token_url'
         
-        # if self._parse_json(result_webpage, 'login-webpage', fatal=False).get('statusCode'):
-            # raise ExtractorError(f'Error occur when login: {result_webpage.get(description)}')
-        #print(result_webpage)
+        try:
+            webpage = self._download_webpage(
+            login_url, 'login', data=json.dumps(post_data).encode(), headers=self._HEADER )
+            self.write_debug(f'webpage: {webpage}')
+            #self.write_debug(f'webpage_url {webpage.geturl()}')
+        except ExtractorError as e:
+            if not isinstance(e.cause, HTTPError):
+                raise
+            error = self._parse_json(e.cause.read(), 'login')
+            self.write_debug(f'error: {error}')
         
-        # actual token is taken here
+        # required data for callback url
+        # wa
+        # wresult
+        # wctx (need to unquote)
+     
+        # # bearer_token = self._search_regex(
+            # # r'<input\s*[\w=\"]+\s*name=\"wresult\"\s*value=\"(?P<result>[\w\.-]+)',
+            # # result_webpage, 'bearer_token', group='result')
+        # # print(bearer_token)
+     
+        # this url should be redirect to resume?state then to callback?code=<code>
+        callback_url = 'https://authorize.dailywire.com/login/callback'
+        
+        # needed data to token
+        # code (from callback?code=<code>)
+        # client_id 
+        # code_verifier (didn't where this value came from)
+        # 
+        
+        # # actual token is taken here
         token_url = 'https://authorize.dailywire.com/oauth/token'
         token_post_data = {
             'client_id': 'hDgwLR0K67GTe9IuVKATlbohhsAbD37H',
-            'code_verifier': 'oYtR0VP4SF8TD_v0.YW9i02VvBgJ1wDcxfb4GgtN1Sj', # always change
+            # 'code_verifier': 'oYtR0VP4SF8TD_v0.YW9i02VvBgJ1wDcxfb4GgtN1Sj', # always change
             'grant_type': 'authorization_code',
-            'code': 'Wr8E9G3IDOgagKcp-OVB3ZPbcFbhRFkQ-RSuvgtF2KpiH', # always change
+            #'code': 'Wr8E9G3IDOgagKcp-OVB3ZPbcFbhRFkQ-RSuvgtF2KpiH', # always change
             'redirect_uri': 'https://www.dailywire.com/callback',
-            }
-        token_data = self._download_json(
-            'https://authorize.dailywire.com/oauth/token',
-            'token', data=json.dumps(token_post_data).encode(), headers=self._HEADER,)
-        # bearer_token = self._search_regex(
-            # r'<input\s*[\w=\"]+\s*name=\"wresult\"\s*value=\"(?P<result>[\w\.-]+)',
-            # result_webpage, 'bearer_token', group='result')
-        # print(bearer_token)
+        }
+        # token_data = self._download_json(
+            # 'https://authorize.dailywire.com/oauth/token',
+            # 'token', data=json.dumps(token_post_data).encode(), headers=self._HEADER,)
         
-        bearer_token = access_token 
-        self._HEADER['Authorization'] = f'Bearer {bearer_token}'
+        
+        # bearer_token = access_token 
+        # self._HEADER['Authorization'] = f'Bearer {bearer_token}'
         
     def _get_json(self, url):
         sites_type, slug = self._match_valid_url(url).group('sites_type', 'id')

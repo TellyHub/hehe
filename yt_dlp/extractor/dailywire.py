@@ -9,6 +9,7 @@ from ..utils import (
     url_or_none,
 )
 from urllib.error import HTTPError
+from urllib.parse import unquote
 
 class DailyWireBaseIE(InfoExtractor):
     _NETRC_MACHINE = True
@@ -80,6 +81,28 @@ query getEpisodeBySlug($slug: String!) {
         return traverse_obj(json_page, ('episode'))
         
     def _perform_login(self, username, password):
+        # before login, to get _csrf, expected redirect to login?state=<state>
+        self.write_debug('Before login')
+        authentication_url = 'https://authorize.dailywire.com/authorize'
+        authentication_query = {
+            'audience': 'https://api.dailywire.com/',
+            'client_id': 'hDgwLR0K67GTe9IuVKATlbohhsAbD37H',
+            'redirect_uri': 'https://www.dailywire.com/callback',
+            'scope': 'openid profile email',
+            'response_type': 'code',
+            'response_mode': 'query',
+            'state': 'WkJMYVc0U1FMMFhpOVdVVUJGcmY0ZU5PUXhrdlpjOFg4LWxSNmVqQkJtSA==',
+            'nonce': 'dFVvOWY4YURZbHFQLkVhTS42dF9HdERpR1Fjdml6Mlk0VDJwSWJrNkFpcw==',
+            'code_challenge': 'jYovVPCO3IAuzh2lcDD2NZkUC61lKWbg8zkAbFfqKgM',
+            'code_challenge_method': 'S256',
+            'auth0Client': 'eyJuYW1lIjoiYXV0aDAtc3BhLWpzIiwidmVyc2lvbiI6IjEuMTkuMyJ9',
+        }
+        # the _csrf cookie in login?state=<state>
+        authentication_request = self._request_webpage(
+            authentication_url, 'auth:init', query=authentication_query, headers=self._HEADER
+        )
+        print(authentication_request.headers)
+        
         self.write_debug('trying to login')
         # This site using Oauth2 for authorization
         login_url = 'https://authorize.dailywire.com/usernamepassword/login'
@@ -106,6 +129,7 @@ query getEpisodeBySlug($slug: String!) {
             # "protocol":"oauth2"
         # }
         
+        # can be simplified with authentication_query
         post_data={
             "client_id": "hDgwLR0K67GTe9IuVKATlbohhsAbD37H",
             "redirect_uri": "https://www.dailywire.com/callback",
@@ -130,12 +154,8 @@ query getEpisodeBySlug($slug: String!) {
         }
         
         # this site validate right account here
-        # result_webpage = self._download_webpage(
-            # login_url,
-            # 'dailywire:login', data=json.dumps(post_data).encode(), headers=self._HEADER,
-        # )
         
-        # result webpage can return html if success and json if not
+        # webpage can return html if success and json if not
         # the 'login_url' seems to redirect url to <redirect_url>?code=<code>, 
         # the <code> can be used in 'token_url'
         
@@ -149,26 +169,55 @@ query getEpisodeBySlug($slug: String!) {
                 raise
             error = self._parse_json(e.cause.read(), 'login')
             self.write_debug(f'error: {error}')
-        
+        ###################################################
         # required data for callback url
         # wa
         # wresult
         # wctx (need to unquote)
-     
-        # # bearer_token = self._search_regex(
-            # # r'<input\s*[\w=\"]+\s*name=\"wresult\"\s*value=\"(?P<result>[\w\.-]+)',
-            # # result_webpage, 'bearer_token', group='result')
-        # # print(bearer_token)
-     
+        
+        # this post data seems can be simplified 
+        wctx = {
+            'strategy': 'auth0',
+            'auth0Client': '',
+            'tenant': 'dailywire',
+            'connection': 'Username-Password-Authentication',
+            'client_id': authentication_query.get('client_id'),
+            'response_type': 'code',
+            'response_mode': post_data.get('state'),
+            'nonce': post_data.get('nonce'),
+            'sid': '97uVlCgP8TiP7eeOoOTGKxavrrnfIx74',
+            'audience': post_data.get('audience'),
+            'jti': '62b98fe0dced2742fff06890',
+            'realm': 'Username-Password-Authentication',
+        }
+        callback_post_data = {
+            'wa': self._search_regex(
+                r'<input\s*[\w=\"]+\s*name=\"wa\"\s*value=\"(?P<result>[\w\.-]+)',
+                webpage, 'wa', group='result'),
+            'wresult': self._search_regex(
+                r'<input\s*[\w=\"]+\s*name=\"wresult\"\s*value=\"(?P<result>[\w\.-]+)', 
+                webpage, 'wresult', group='result'),
+            'wctx': json.dumps(wctx),
+        }
+        
+        self.write_debug(callback_post_data)
+        
         # this url should be redirect to resume?state then to callback?code=<code>
         callback_url = 'https://authorize.dailywire.com/login/callback'
         
+        callback_request = self._request_webpage(
+            callback_url, 
+            'video_id', data=json.dumps(callback_post_data).encode(), 
+            headers={'Content-Type': 'application/x-www-form-urlencoded'})
+            
+        callback_final_url = callback_request.geturl()
+        self.write_debug(f'Final callback url: {callback_final_url}')
         # needed data to token
         # code (from callback?code=<code>)
         # client_id 
         # code_verifier (didn't where this value came from)
         # 
-        
+        self.write_debug('Trying to get token')
         # # actual token is taken here
         token_url = 'https://authorize.dailywire.com/oauth/token'
         token_post_data = {
@@ -177,14 +226,17 @@ query getEpisodeBySlug($slug: String!) {
             'grant_type': 'authorization_code',
             #'code': 'Wr8E9G3IDOgagKcp-OVB3ZPbcFbhRFkQ-RSuvgtF2KpiH', # always change
             'redirect_uri': 'https://www.dailywire.com/callback',
+            'code': self._search_regex(
+                r'callback\?code=\"(?P<code>)\"', 
+                callback_final_url, 'callback_code',group='code') 
         }
-        # token_data = self._download_json(
-            # 'https://authorize.dailywire.com/oauth/token',
-            # 'token', data=json.dumps(token_post_data).encode(), headers=self._HEADER,)
+        token_data = self._download_json(
+            'https://authorize.dailywire.com/oauth/token',
+            'token', data=json.dumps(token_post_data).encode(), headers=self._HEADER,)
         
-        
-        # bearer_token = access_token 
-        # self._HEADER['Authorization'] = f'Bearer {bearer_token}'
+        self._HEADER['Authorization'] = f'{token_data.get("token_type")} {token_data.get("access_token")}'
+        #bearer_token = access_token 
+        #self._HEADER['Authorization'] = f'Bearer {bearer_token}'
         
     def _get_json(self, url):
         sites_type, slug = self._match_valid_url(url).group('sites_type', 'id')

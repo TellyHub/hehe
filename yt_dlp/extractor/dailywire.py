@@ -7,7 +7,7 @@ from ..utils import (
     traverse_obj,
     url_or_none,
 )
-
+import json
 
 class DailyWireBaseIE(InfoExtractor):
     _JSON_PATH = {

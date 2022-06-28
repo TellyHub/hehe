@@ -18,6 +18,26 @@ class DailyWireBaseIE(InfoExtractor):
     _HEADER = {
         'content-type': 'application/json',
     }
+    _QUERY = {}
+    
+    def _get_json(self, url):
+        sites_type, slug = self._match_valid_url(url).group('sites_type', 'id')        
+        # using graphql api
+        query = {
+            'query': self._QUERY, 
+            'variables': {'slug': f'{slug}'}
+        }
+        json_page = self._download_json(
+            'https://v2server.dailywire.com/app/graphql',
+            slug, data=json.dumps(query).encode(), headers=self._HEADER, fatal=False)
+            
+        # fallback to json_data if json_page return None or False
+        json_data = self._search_nextjs_data(self._download_webpage(url, slug), slug)
+        return slug, traverse_obj(json_page, ('data', 'episode')) or traverse_obj(json_data, self._JSON_PATH[sites_type])
+
+
+class DailyWireIE(DailyWireBaseIE):
+    _VALID_URL = r'https?://(?:www\.)dailywire(?:\.com)/(?P<sites_type>episode|videos)/(?P<id>[\w-]+)'
     _QUERY = '''
 query getEpisodeBySlug($slug: String!) {
   episode(where: {slug: $slug}) {
@@ -64,27 +84,7 @@ query getEpisodeBySlug($slug: String!) {
     discussionId
     }
 }
-'''    
-
-    def _call_api(self, slug):
-        # using graphql api
-        query = {
-            'query': self._QUERY, 
-            'variables': {'slug': f'{slug}'}
-        }
-        json_page = self._download_json(
-            'https://v2server.dailywire.com/app/graphql',
-            slug, data=json.dumps(query).encode(), headers=self._HEADER, fatal=False)
-        return traverse_obj(json_page, ('data', 'episode'))
-       
-    def _get_json(self, url):
-        sites_type, slug = self._match_valid_url(url).group('sites_type', 'id')
-        json_data = self._search_nextjs_data(self._download_webpage(url, slug), slug)
-        return slug, traverse_obj(json_data, self._JSON_PATH[sites_type])
-
-
-class DailyWireIE(DailyWireBaseIE):
-    _VALID_URL = r'https?://(?:www\.)dailywire(?:\.com)/(?P<sites_type>episode|videos)/(?P<id>[\w-]+)'
+''' 
     _TESTS = [{
         'url': 'https://www.dailywire.com/episode/1-fauci',
         'info_dict': {
@@ -118,7 +118,8 @@ class DailyWireIE(DailyWireBaseIE):
 
     def _real_extract(self, url):
         slug, episode_info = self._get_json(url)
-        episode_info = self._call_api(slug) or episode_info
+        #episode_info = self._call_api(slug) or episode_info
+        self.write_debug(f'json: {episode_info}')
         urls = traverse_obj(
             episode_info, (('segments', 'videoUrl'), ..., ('video', 'audio')), expected_type=url_or_none)
         formats, subtitles = [], {}

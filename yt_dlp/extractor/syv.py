@@ -31,7 +31,7 @@ class SyvIE(InfoExtractor):
             raw_json, ('props', 'pageProps', 'episodeDetails', ..., 'details'))[0]
 
         return {
-            'id': str_or_none(json_data['ID']),
+            'id': str(json_data['ID']),
             'title': json_data.get('post_content'),
             'url': json_data['enclosure'],
             'display_id': json_data.get('slug') or video_id,

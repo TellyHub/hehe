@@ -69,6 +69,9 @@ query getEpisodeBySlug($slug: String!) {
     }
 }
 '''    
+    def real_initialize(self):
+        pass 
+    
     def _call_api(self, slug):
         # using graphql api
         query = {
@@ -78,9 +81,10 @@ query getEpisodeBySlug($slug: String!) {
         json_page = self._download_json(
             'https://v2server.dailywire.com/app/graphql',
             slug, data=json.dumps(query).encode('utf-8'), headers=self._HEADER, fatal=False)
-        return traverse_obj(json_page, ('episode'))
-        
-    def _perform_login(self, username, password):
+        self.write_debug(f'json page: {json_page}')
+        return traverse_obj(json_page, ('data', 'episode'))
+       
+    def initialize_pre_login(self):
         # before login, to get _csrf, expected redirect to login?state=<state>
         self.write_debug('Before login')
         authentication_url = 'https://authorize.dailywire.com/authorize'
@@ -101,57 +105,58 @@ query getEpisodeBySlug($slug: String!) {
         authentication_request = self._request_webpage(
             authentication_url, 'auth:init', query=authentication_query, headers=self._HEADER
         )
-        print(self._get_cookies(authentication_url).get('_csrf'))
+        print(self._get_cookies(authentication_url))
         
+    
+    def _perform_login(self, username, password):
         self.write_debug('trying to login')
         # This site using Oauth2 for authorization
         login_url = 'https://authorize.dailywire.com/usernamepassword/login'
-        # post_data={
-            # 'client_id': 'hDgwLR0K67GTe9IuVKATlbohhsAbD37H',
-            # 'redirect_uri': 'https://www.dailywire.com/callback',
-            # 'tenant': 'dailywire',
-            # 'response_type': 'code',
-            # 'scope': 'openid profile email',
-            # 'state':'hKFo2SBvYTJTS0FpeWxYN0hYa3Rwb1BEaXhjN1M2eGFfMTdtd6FupWxvZ2luo3RpZNkgNlBzRGRYMU9uNWpiSFFoN2hwalljVlAydTh1T0hPSWWjY2lk2SBoRGd3TFIwSzY3R1RlOUl1VktBVGxib2hoc0FiRDM3SA',
-            # 'nonce': 'dFVvOWY4YURZbHFQLkVhTS42dF9HdERpR1Fjdml6Mlk0VDJwSWJrNkFpcw==', # always change
-            # 'connection': 'Username-Password-Authentication',
-            # 'username': f'{username}',
-            # 'password': f"{password}",
-            # 'popup_options': {},
-            # 'sso': True,
-            # 'response_mode': 'query',
-            # '_intstate': 'deprecated',
-            # '_csrf': '2LQZ014Y-1c_Ebv2T6hUOm_EgsBihroWlKUA', # always change
-            # 'audience': 'https://api.dailywire.com/',
-            # 'code_challenge_method': 'S256',
-            # 'code_challenge':'jYovVPCO3IAuzh2lcDD2NZkUC61lKWbg8zkAbFfqKgM', # always change
-            # 'auth0Client': 'eyJuYW1lIjoiYXV0aDAtc3BhLWpzIiwidmVyc2lvbiI6IjEuMTkuMyJ9',
-            # "protocol":"oauth2"
-        # }
-        
         # can be simplified with authentication_query
-        post_data={
-            "client_id": "hDgwLR0K67GTe9IuVKATlbohhsAbD37H",
-            "redirect_uri": "https://www.dailywire.com/callback",
-            "tenant": "dailywire",
-            "response_type": "code",
-            "scope": "openid profile email",
-            "state": "hKFo2SBWemhXcV9NZTdrdkFFby1JYTJtdzV3bjJ0UHR2RFB6UqFupWxvZ2luo3RpZNkgRW9hcU9HSmRSVGtXdHFlQlNJZy1HZXlmclNSLUt3a2SjY2lk2SBoRGd3TFIwSzY3R1RlOUl1VktBVGxib2hoc0FiRDM3SA",
-            "nonce": "dFVvOWY4YURZbHFQLkVhTS42dF9HdERpR1Fjdml6Mlk0VDJwSWJrNkFpcw==",
-            "connection": "Username-Password-Authentication",
+        # post_data={
+            # "client_id": "hDgwLR0K67GTe9IuVKATlbohhsAbD37H",
+            # "redirect_uri": "https://www.dailywire.com/callback",
+            # "tenant": "dailywire",
+            # "response_type": "code",
+            # "scope": "openid profile email",
+            # "state": "hKFo2SBWemhXcV9NZTdrdkFFby1JYTJtdzV3bjJ0UHR2RFB6UqFupWxvZ2luo3RpZNkgRW9hcU9HSmRSVGtXdHFlQlNJZy1HZXlmclNSLUt3a2SjY2lk2SBoRGd3TFIwSzY3R1RlOUl1VktBVGxib2hoc0FiRDM3SA",
+            # "nonce": "dFVvOWY4YURZbHFQLkVhTS42dF9HdERpR1Fjdml6Mlk0VDJwSWJrNkFpcw==",
+            # "connection": "Username-Password-Authentication",
+            # "username": f"{username}",
+            # "password": f"{password}",
+            # "popup_options": {},
+            # "sso": True,
+            # "response_mode": "query",
+            # "_intstate": "deprecated",
+            # "_csrf": "2LQZ014Y-1c_Ebv2T6hUOm_EgsBihroWlKUA",
+            # "audience": "https://api.dailywire.com/",
+            # "code_challenge_method": "S256",
+            # "code_challenge": "jYovVPCO3IAuzh2lcDD2NZkUC61lKWbg8zkAbFfqKgM",
+            # "auth0Client": "eyJuYW1lIjoiYXV0aDAtc3BhLWpzIiwidmVyc2lvbiI6IjEuMTkuMyJ9",
+            # "protocol": "oauth2"
+        # }
+        post_data = {
+            "client_id":"hDgwLR0K67GTe9IuVKATlbohhsAbD37H",
+            "redirect_uri":"https://www.dailywire.com/callback",
+            "tenant":"dailywire",
+            "response_type":"code",
+            "scope":"openid profile email",
+            "state":"hKFo2SAzSjI4N2hYRHFyUUVPQlhUel9saU0waEd6eF9RYk5aMaFupWxvZ2luo3RpZNkgRXBsMHRKYVhVTFB4OVp1azJPOWVjQ285bjhsaW1qWFKjY2lk2SBoRGd3TFIwSzY3R1RlOUl1VktBVGxib2hoc0FiRDM3SA",
+            "nonce":"aWl0NmJBWWxTNmFmdzdkd1RWYzUyNjJrYUVCSlp3WTZ3MmdZQlFoS2VBQg==",
+            "connection":"Username-Password-Authentication",
             "username": f"{username}",
             "password": f"{password}",
-            "popup_options": {},
+            "popup_options":{},
             "sso": True,
-            "response_mode": "query",
-            "_intstate": "deprecated",
-            "_csrf": "2LQZ014Y-1c_Ebv2T6hUOm_EgsBihroWlKUA",
-            "audience": "https://api.dailywire.com/",
-            "code_challenge_method": "S256",
-            "code_challenge": "jYovVPCO3IAuzh2lcDD2NZkUC61lKWbg8zkAbFfqKgM",
-            "auth0Client": "eyJuYW1lIjoiYXV0aDAtc3BhLWpzIiwidmVyc2lvbiI6IjEuMTkuMyJ9",
-            "protocol": "oauth2"
-        }
+            "response_mode":"query",
+            "_intstate":"deprecated",
+            "_csrf":"A2VgD64n-wFCMM9oDScK4ahxB1cirAq_ivt0",
+            "audience":"https://api.dailywire.com/",
+            "code_challenge_method":"S256",
+            "code_challenge":"yZEVzDVKqNWx_QtrGj9bBfffHvejXFy8i56LWcgILho",
+            "auth0Client":"eyJuYW1lIjoiYXV0aDAtc3BhLWpzIiwidmVyc2lvbiI6IjEuMTkuMyJ9",
+            "protocol":"oauth2"}
+        
         
         # this site validate right account here
         
@@ -180,9 +185,9 @@ query getEpisodeBySlug($slug: String!) {
             'strategy': 'auth0',
             'auth0Client': '',
             'tenant': 'dailywire',
-            'connection': 'Username-Password-Authentication',
-            'client_id': authentication_query.get('client_id'),
-            'response_type': 'code',
+            'connection': post_data.get('connection'),
+            'client_id': post_data.get('client_id'),
+            'response_type': post_data.get('response_type'),
             'response_mode': post_data.get('state'),
             'nonce': post_data.get('nonce'),
             'sid': '97uVlCgP8TiP7eeOoOTGKxavrrnfIx74',

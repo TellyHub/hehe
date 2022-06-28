@@ -17,25 +17,19 @@ class SyvIE(InfoExtractor):
             'episode_id': '50183310',
         }
     }]
-    
-    def _get_json(self, url, video_id):
 
-        # api_json = self._download_json(
-        #     'https://24syv.dk/_next/data/cFBEvAQW8MaOWaF1C5FVJ/index.json', 
-        #     video_id, headers={'Referrer': f'{url}'})
-            
-        # fallback to webpage if api_json is none
+    def _get_json(self, url, video_id):
         webpage = self._download_webpage(url, video_id)
         nextjs_data = self._search_nextjs_data(webpage, video_id)
         # the return of api_json is different
         return nextjs_data
-        
+
     def _real_extract(self, url):
         video_id = self._match_id(url)
         raw_json = self._get_json(url, video_id)
         json_data = traverse_obj(
-            raw_json, ('props','pageProps', 'episodeDetails', ..., 'details'))[0]
-              
+            raw_json, ('props', 'pageProps', 'episodeDetails', ..., 'details'))[0]
+
         return {
             'id': str_or_none(json_data['ID']),
             'title': json_data.get('post_content'),
@@ -45,5 +39,4 @@ class SyvIE(InfoExtractor):
             'description': json_data.get('post_title'),
             'duration': int_or_none(json_data.get('duration')),
             'episode_id': json_data.get('episode_id'),
-            
         }

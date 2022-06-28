@@ -2994,7 +2994,7 @@ def read_batch_urls(batch_fd):
         if not url or url.startswith(('#', ';', ']')):
             return False
         # "#" cannot be stripped out since it is part of the URI
-        # However, it can be safely stipped out if follwing a whitespace
+        # However, it can be safely stripped out if following a whitespace
         return re.split(r'\s#', url, 1)[0].rstrip()
 
     with contextlib.closing(batch_fd) as fd:
@@ -3015,9 +3015,9 @@ def update_url_query(url, query):
         query=urllib.parse.urlencode(qs, True)))
 
 
-def update_Request(req, url=None, data=None, headers={}, query={}):
+def update_Request(req, url=None, data=None, headers=None, query=None):
     req_headers = req.headers.copy()
-    req_headers.update(headers)
+    req_headers.update(headers or {})
     req_data = data or req.data
     req_url = update_url_query(url or req.get_full_url(), query)
     req_get_method = req.get_method()

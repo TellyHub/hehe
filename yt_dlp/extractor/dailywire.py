@@ -28,7 +28,6 @@ class DailyWireBaseIE(InfoExtractor):
             slug, headers=self._HEADER)
         
         access_token = self._get_cookies(f'https://www.dailywire.com/_next/data/ACNDc_38LPvayJQs8psfX/episode/{slug}.json').get('access_token')
-        print(self._get_cookies(f'https://www.dailywire.com/_next/data/ACNDc_38LPvayJQs8psfX/episode/{slug}.json'))
         # set access_token from cookie to headers
         # assuming the access_token token is always Bearer
         self._HEADER['Authorization'] = f'Bearer {access_token}'
@@ -176,7 +175,7 @@ class DailyWirePodcastIE(DailyWireBaseIE):
 
     def _real_extract(self, url):
         slug, episode_info = self._get_json(url)
-        audio_id = traverse_obj(episode_info, 'audioMuxPlaybackId', 'VUsAipTrBVSgzw73SpC2DAJD401TYYwEp')
+        audio_id = traverse_obj(episode_info, 'audioMuxPlaybackId')
 
         return {
             'id': episode_info['id'],

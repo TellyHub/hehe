@@ -74,7 +74,7 @@ query getEpisodeBySlug($slug: String!) {
         }
         json_page = self._download_json(
             'https://v2server.dailywire.com/app/graphql',
-            slug, data=json.dumps(query).encode('utf-8'), headers=self._HEADER, fatal=False)
+            slug, data=json.dumps(query).encode(), headers=self._HEADER, fatal=False)
         return traverse_obj(json_page, ('data', 'episode'))
        
     def _get_json(self, url):

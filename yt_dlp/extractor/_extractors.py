@@ -1665,6 +1665,7 @@ from .svt import (
 )
 from .swrmediathek import SWRMediathekIE
 from .syfy import SyfyIE
+from .syv import SyvIE
 from .sztvhu import SztvHuIE
 from .tagesschau import TagesschauIE
 from .tass import TassIE

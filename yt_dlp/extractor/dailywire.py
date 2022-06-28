@@ -1,6 +1,5 @@
 from .common import InfoExtractor
 from ..utils import (
-    ExtractorError,
     determine_ext,
     float_or_none,
     join_nonempty,
@@ -8,6 +7,7 @@ from ..utils import (
     url_or_none,
 )
 import json
+
 
 class DailyWireBaseIE(InfoExtractor):
     _JSON_PATH = {
@@ -19,29 +19,32 @@ class DailyWireBaseIE(InfoExtractor):
         'content-type': 'application/json',
     }
     _QUERY = {}
-    
+
     def _get_json(self, url):
-        sites_type, slug = self._match_valid_url(url).group('sites_type', 'id')        
+        sites_type, slug = self._match_valid_url(url).group('sites_type', 'id')
         # another api call, can be used to get access_token and fallback json
         nextdata_api_json = self._download_json(
             f'https://www.dailywire.com/_next/data/ACNDc_38LPvayJQs8psfX/{sites_type}/{slug}.json',
             slug, headers=self._HEADER)
-        
+
+        # this is not a proper solution to get cookie though,
+        # actually we can the access_token from https://authorize.dailywire.com/oauth/token,
+        # but this requires full login support (-u, -p, --nerc)
         access_token = self._get_cookies(f'https://www.dailywire.com/_next/data/ACNDc_38LPvayJQs8psfX/episode/{slug}.json').get('access_token')
         # set access_token from cookie to headers
         # assuming the access_token token is always Bearer
         self._HEADER['Authorization'] = f'Bearer {access_token}'
-        
+
         # using graphql api
         query = {
-            'query': self._QUERY, 
+            'query': self._QUERY,
             'variables': {'slug': f'{slug}'}
         }
-        # this url call below expected to get Authorization Header if login 
+        # this url call below expected to get Authorization Header if login
         json_page = self._download_json(
             'https://v2server.dailywire.com/app/graphql',
             slug, data=json.dumps(query).encode(), headers=self._HEADER, fatal=False)
-            
+
         # fallback to json_data if json_page return None or False
         json_data = self._search_nextjs_data(self._download_webpage(url, slug), slug)
         return slug, traverse_obj(json_page, ('data', 'episode')) or traverse_obj(json_data or nextdata_api_json, self._JSON_PATH[sites_type])
@@ -95,7 +98,7 @@ query getEpisodeBySlug($slug: String!) {
     discussionId
     }
 }
-''' 
+'''
     _TESTS = [{
         'url': 'https://www.dailywire.com/episode/1-fauci',
         'info_dict': {

@@ -20,9 +20,9 @@ class SyvIE(InfoExtractor):
     
     def _get_json(self, url, video_id):
 
-        api_json = self._download_json(
-            'https://24syv.dk/_next/data/cFBEvAQW8MaOWaF1C5FVJ/index.json', 
-            video_id, headers={'Referrer': f'{url}'})
+        # api_json = self._download_json(
+        #     'https://24syv.dk/_next/data/cFBEvAQW8MaOWaF1C5FVJ/index.json', 
+        #     video_id, headers={'Referrer': f'{url}'})
             
         # fallback to webpage if api_json is none
         webpage = self._download_webpage(url, video_id)

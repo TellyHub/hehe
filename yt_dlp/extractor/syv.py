@@ -3,6 +3,7 @@ from ..utils import int_or_none, str_or_none, traverse_obj
 
 
 class SyvIE(InfoExtractor):
+    IE_NAME = '24syv.dk'
     _VALID_URL = r'https?://24syv\.dk/episode/(?P<id>[\w-]+)'
     _TESTS = [{
         'url': 'https://24syv.dk/episode/isabella-arendt-stiller-op-for-de-konservative-2',
@@ -21,7 +22,6 @@ class SyvIE(InfoExtractor):
     def _get_json(self, url, video_id):
         webpage = self._download_webpage(url, video_id)
         nextjs_data = self._search_nextjs_data(webpage, video_id)
-        # the return of api_json is different
         return nextjs_data
 
     def _real_extract(self, url):
